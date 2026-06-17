@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
@@ -25,6 +26,7 @@ type gandiProvider struct {
 type providerModel struct {
 	PersonalAccessToken types.String `tfsdk:"personal_access_token"`
 	APIURL              types.String `tfsdk:"api_url"`
+	Sandbox             types.Bool   `tfsdk:"sandbox"`
 	SharingID           types.String `tfsdk:"sharing_id"`
 	TimeoutSeconds      types.Int64  `tfsdk:"timeout_seconds"`
 }
@@ -52,8 +54,13 @@ func (p *gandiProvider) Schema(_ context.Context, _ provider.SchemaRequest, resp
 				Sensitive:           true,
 			},
 			"api_url": schema.StringAttribute{
-				MarkdownDescription: "Gandi API base URL. Defaults to `https://api.gandi.net`. Falls back to `GANDI_API_URL`.",
+				MarkdownDescription: "Gandi API base URL. Defaults to `https://api.gandi.net`. Falls back to `GANDI_API_URL`. Takes precedence over `sandbox`.",
 				Optional:            true,
+			},
+			"sandbox": schema.BoolAttribute{
+				MarkdownDescription: "Use the Gandi sandbox API (`https://api.sandbox.gandi.net`) instead of production. " +
+					"Requires a separate sandbox account and sandbox PAT. Falls back to `GANDI_SANDBOX`. Ignored if `api_url` is set.",
+				Optional: true,
 			},
 			"sharing_id": schema.StringAttribute{
 				MarkdownDescription: "Organization ID (sharing_id) to scope requests. Falls back to `GANDI_SHARING_ID`.",
@@ -85,6 +92,18 @@ func (p *gandiProvider) Configure(ctx context.Context, req provider.ConfigureReq
 	}
 
 	apiURL := firstNonEmpty(cfg.APIURL.ValueString(), os.Getenv("GANDI_API_URL"))
+	sandbox := cfg.Sandbox.ValueBool() || envTrue(os.Getenv("GANDI_SANDBOX"))
+	if sandbox {
+		if apiURL != "" {
+			resp.Diagnostics.AddAttributeWarning(
+				path.Root("sandbox"),
+				"sandbox ignored",
+				"Both `api_url` and `sandbox` are set; `api_url` takes precedence and `sandbox` is ignored.",
+			)
+		} else {
+			apiURL = gandi.SandboxBaseURL
+		}
+	}
 	sharingID := firstNonEmpty(cfg.SharingID.ValueString(), os.Getenv("GANDI_SHARING_ID"))
 
 	timeout := 30 * time.Second
@@ -123,4 +142,9 @@ func firstNonEmpty(vals ...string) string {
 		}
 	}
 	return ""
+}
+
+func envTrue(v string) bool {
+	b, _ := strconv.ParseBool(v)
+	return b
 }

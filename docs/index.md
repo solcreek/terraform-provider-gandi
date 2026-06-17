@@ -17,6 +17,11 @@ provider "gandi" {
   # by default; it can also be set explicitly here.
   # personal_access_token = "..."
   timeout_seconds = 30
+
+  # Target the Gandi sandbox instead of production. Requires a separate sandbox
+  # account and a sandbox-specific PAT. Equivalent to
+  # api_url = "https://api.sandbox.gandi.net".
+  # sandbox = true
 }
 ```
 
@@ -25,7 +30,8 @@ provider "gandi" {
 
 ### Optional
 
-- `api_url` (String) Gandi API base URL. Defaults to `https://api.gandi.net`. Falls back to `GANDI_API_URL`.
+- `api_url` (String) Gandi API base URL. Defaults to `https://api.gandi.net`. Falls back to `GANDI_API_URL`. Takes precedence over `sandbox`.
 - `personal_access_token` (String, Sensitive) Gandi Personal Access Token. Falls back to the `GANDI_PAT` environment variable.
+- `sandbox` (Boolean) Use the Gandi sandbox API (`https://api.sandbox.gandi.net`) instead of production. Requires a separate sandbox account and sandbox PAT. Falls back to `GANDI_SANDBOX`. Ignored if `api_url` is set.
 - `sharing_id` (String) Organization ID (sharing_id) to scope requests. Falls back to `GANDI_SHARING_ID`.
 - `timeout_seconds` (Number) Per-request HTTP timeout in seconds. Defaults to 30.

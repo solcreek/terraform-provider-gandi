@@ -13,8 +13,13 @@ import (
 // Generate the registry documentation from schema + examples/ + templates/.
 //go:generate go tool tfplugindocs generate --provider-name gandi
 
-// version is overridden at build time via -ldflags.
-var version = "dev"
+// version and commit are overridden at build time via -ldflags.
+var (
+	version = "dev"
+	commit  = "none"
+)
+
+var _ = commit // surfaced via -ldflags; referenced to avoid "unused" in dev builds
 
 func main() {
 	var debug bool
