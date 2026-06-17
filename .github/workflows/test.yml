@@ -1,0 +1,90 @@
+name: Tests
+
+on:
+  pull_request:
+    paths-ignore:
+      - "README.md"
+      - "LICENSE"
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - "README.md"
+      - "LICENSE"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build & vet
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: "go.mod"
+          cache: true
+      - run: go build -v ./...
+      - run: go vet ./...
+      - name: gofmt
+        run: |
+          if [ -n "$(gofmt -l .)" ]; then
+            echo "These files need gofmt:"; gofmt -l .; exit 1
+          fi
+
+  lint:
+    name: golangci-lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: "go.mod"
+          cache: true
+      - uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+
+  unit:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: "go.mod"
+          cache: true
+      - run: go test -race -count=1 -cover ./...
+
+  acceptance:
+    name: Acceptance tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Acceptance tests hit the real Gandi API. They only run when a maintainer
+    # has configured the repository variable RUN_ACC=true plus the GANDI_PAT /
+    # GANDI_TEST_DOMAIN secrets, so forks and PRs do not fail on missing creds.
+    if: ${{ vars.RUN_ACC == 'true' }}
+    needs: [build, unit]
+    strategy:
+      fail-fast: false
+      matrix:
+        terraform: ["1.8.*", "1.9.*"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: "go.mod"
+          cache: true
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ matrix.terraform }}
+          terraform_wrapper: false
+      - env:
+          TF_ACC: "1"
+          GANDI_PAT: ${{ secrets.GANDI_PAT }}
+          GANDI_TEST_DOMAIN: ${{ secrets.GANDI_TEST_DOMAIN }}
+        run: go test -count=1 -timeout 20m -v ./internal/provider/
