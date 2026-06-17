@@ -9,6 +9,11 @@ linters:
     - unused
     - misspell
     - unconvert
+  settings:
+    errcheck:
+      # Writing to an http.ResponseWriter conventionally ignores the error.
+      exclude-functions:
+        - (net/http.ResponseWriter).Write
 
 issues:
   max-issues-per-linter: 0

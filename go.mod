@@ -1,6 +1,6 @@
 module github.com/solcreek/terraform-provider-gandi
 
-go 1.26.3
+go 1.25.8
 
 require (
 	github.com/hashicorp/terraform-plugin-framework v1.19.0

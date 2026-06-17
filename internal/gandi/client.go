@@ -164,8 +164,8 @@ func (c *Client) do(ctx context.Context, method, path string, body, out any) err
 		// Rate limited: back off and retry.
 		if resp.StatusCode == http.StatusTooManyRequests && attempt < maxAttempts-1 {
 			wait := retryAfter(resp.Header.Get("Retry-After"), attempt)
-			io.Copy(io.Discard, resp.Body)
-			resp.Body.Close()
+			_, _ = io.Copy(io.Discard, resp.Body)
+			_ = resp.Body.Close()
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
@@ -176,7 +176,7 @@ func (c *Client) do(ctx context.Context, method, path string, body, out any) err
 		}
 
 		respBody, _ := io.ReadAll(resp.Body)
-		resp.Body.Close()
+		_ = resp.Body.Close()
 
 		if resp.StatusCode < 200 || resp.StatusCode > 299 {
 			return parseError(resp.StatusCode, respBody)
