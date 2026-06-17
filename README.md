@@ -1,5 +1,9 @@
+<a href="https://terraform.io">
+    <img src=".github/tf.svg" alt="Terraform logo" title="Terraform" align="left" height="50" />
+</a>
 <a href="https://opentofu.org">
-    <img src=".github/tf.svg" alt="Terraform logo" title="Terraform / OpenTofu" align="left" height="50" />
+    <img src=".github/opentofu-light.svg#gh-light-mode-only" alt="OpenTofu logo" title="OpenTofu" align="left" height="50" />
+    <img src=".github/opentofu-dark.svg#gh-dark-mode-only" alt="OpenTofu logo" title="OpenTofu" align="left" height="50" />
 </a>
 
 # Terraform / OpenTofu Provider for Gandi
@@ -12,10 +16,13 @@ standard-library-only** Gandi API client (no `go-gandi`), so the provider owns
 its own HTTP behaviour: configurable timeout, rate-limit back-off and clear
 credential errors.
 
-Proudly built for the open-source IaC ecosystem and dedicated to **OpenTofu**:
+> [!NOTE]
+> This is an **unofficial, community-maintained** provider. It is **not**
+> affiliated with, endorsed by, or supported by Gandi SAS. "Gandi" is a
+> trademark of its respective owner and is used here only to describe what the
+> provider integrates with.
 
-![](https://raw.githubusercontent.com/opentofu/brand-artifacts/main/full/transparent/SVG/on-dark.svg#gh-dark-mode-only)
-![](https://raw.githubusercontent.com/opentofu/brand-artifacts/main/full/transparent/SVG/on-light.svg#gh-light-mode-only)
+Proudly built for the open-source IaC ecosystem and dedicated to **OpenTofu**.
 
 ## Usage
 
