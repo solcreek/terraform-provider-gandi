@@ -88,6 +88,11 @@ func (r *glueRecordResource) Create(ctx context.Context, req resource.CreateRequ
 		resp.Diagnostics.AddError("Unable to create glue record", err.Error())
 		return
 	}
+	// Creation is asynchronous; wait until the registry reflects it.
+	if err := r.client.WaitForHostIPs(ctx, plan.Domain.ValueString(), plan.Name.ValueString(), ips); err != nil {
+		resp.Diagnostics.AddError("Glue record did not become consistent", err.Error())
+		return
+	}
 	plan.ID = types.StringValue(plan.Domain.ValueString() + "/" + plan.Name.ValueString())
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
@@ -136,6 +141,11 @@ func (r *glueRecordResource) Update(ctx context.Context, req resource.UpdateRequ
 		resp.Diagnostics.AddError("Unable to update glue record", err.Error())
 		return
 	}
+	// Updates are asynchronous; wait until the new IPs are reflected.
+	if err := r.client.WaitForHostIPs(ctx, plan.Domain.ValueString(), plan.Name.ValueString(), ips); err != nil {
+		resp.Diagnostics.AddError("Glue record did not become consistent", err.Error())
+		return
+	}
 	plan.ID = types.StringValue(plan.Domain.ValueString() + "/" + plan.Name.ValueString())
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
@@ -150,6 +160,11 @@ func (r *glueRecordResource) Delete(ctx context.Context, req resource.DeleteRequ
 		if !gandi.IsNotFound(err) {
 			resp.Diagnostics.AddError("Unable to delete glue record", err.Error())
 		}
+		return
+	}
+	// Deletion is asynchronous; wait until it is gone so re-creates are clean.
+	if err := r.client.WaitForHostGone(ctx, state.Domain.ValueString(), state.Name.ValueString()); err != nil {
+		resp.Diagnostics.AddError("Glue record was not deleted in time", err.Error())
 	}
 }
 

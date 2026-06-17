@@ -86,6 +86,7 @@ func New(pat string, opts ...Option) *Client {
 type APIError struct {
 	StatusCode int
 	Message    string
+	Cause      string
 	Body       string
 }
 
@@ -96,15 +97,21 @@ func (e *APIError) Error() string {
 	return fmt.Sprintf("gandi API error %d: %s", e.StatusCode, strings.TrimSpace(e.Body))
 }
 
-// IsNotFound reports whether err is an APIError with a 404 status.
+// IsNotFound reports whether err represents a missing resource. Gandi is not
+// consistent here: most endpoints return 404, but some (e.g. glue records)
+// return 400 with cause "CAUSE_NOTFOUND".
 func IsNotFound(err error) bool {
 	var ae *APIError
-	return errors.As(err, &ae) && ae.StatusCode == http.StatusNotFound
+	if !errors.As(err, &ae) {
+		return false
+	}
+	return ae.StatusCode == http.StatusNotFound || ae.Cause == "CAUSE_NOTFOUND"
 }
 
 // standardError matches Gandi's error envelope.
 type standardError struct {
 	Message string `json:"message"`
+	Cause   string `json:"cause"`
 	Errors  []struct {
 		Name        string `json:"name"`
 		Description string `json:"description"`
@@ -189,6 +196,7 @@ func parseError(status int, body []byte) error {
 	ae := &APIError{StatusCode: status, Body: string(body)}
 	var se standardError
 	if json.Unmarshal(body, &se) == nil {
+		ae.Cause = se.Cause
 		if se.Message != "" {
 			ae.Message = se.Message
 		} else if len(se.Errors) > 0 {

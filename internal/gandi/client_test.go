@@ -53,6 +53,18 @@ func TestNotFound(t *testing.T) {
 	}
 }
 
+func TestNotFoundViaCause(t *testing.T) {
+	// Glue records return 400 with cause CAUSE_NOTFOUND instead of a 404.
+	c := testClient(t, func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(`{"code":400,"cause":"CAUSE_NOTFOUND","message":"Host 'ns1.example.com' doesn't exist"}`))
+	})
+	_, err := c.GetHost(context.Background(), "example.com", "ns1")
+	if !IsNotFound(err) {
+		t.Fatalf("IsNotFound = false for 400+CAUSE_NOTFOUND, want true (err=%v)", err)
+	}
+}
+
 func TestUnauthorizedHint(t *testing.T) {
 	c := testClient(t, func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)

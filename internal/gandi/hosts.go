@@ -2,7 +2,10 @@ package gandi
 
 import (
 	"context"
+	"fmt"
 	"net/url"
+	"sort"
+	"time"
 )
 
 // Host is a glue record: a nameserver name registered at the registry with
@@ -50,4 +53,81 @@ func (c *Client) UpdateHost(ctx context.Context, fqdn, name string, ips []string
 // DeleteHost removes a glue record.
 func (c *Client) DeleteHost(ctx context.Context, fqdn, name string) error {
 	return c.do(ctx, "DELETE", hostsPath(fqdn)+"/"+url.PathEscape(name), nil, nil)
+}
+
+// Glue record changes are asynchronous: the API responds 202 ("in progress")
+// and the host becomes consistent a few seconds later. These helpers poll until
+// the registry reflects the desired state so Terraform state stays accurate.
+
+const (
+	hostPollInterval = 2 * time.Second
+	hostPollTimeout  = 90 * time.Second
+)
+
+// WaitForHostIPs polls until the host exists with exactly the given IPs.
+func (c *Client) WaitForHostIPs(ctx context.Context, fqdn, name string, ips []string) error {
+	want := sortedCopy(ips)
+	return poll(ctx, func() (bool, error) {
+		h, err := c.GetHost(ctx, fqdn, name)
+		if err != nil {
+			if IsNotFound(err) {
+				return false, nil
+			}
+			return false, err
+		}
+		return equalStringSets(sortedCopy(h.IPs), want), nil
+	}, fmt.Sprintf("glue record %s.%s to reach desired IPs", name, fqdn))
+}
+
+// WaitForHostGone polls until the host no longer exists.
+func (c *Client) WaitForHostGone(ctx context.Context, fqdn, name string) error {
+	return poll(ctx, func() (bool, error) {
+		_, err := c.GetHost(ctx, fqdn, name)
+		if err == nil {
+			return false, nil
+		}
+		if IsNotFound(err) {
+			return true, nil
+		}
+		return false, err
+	}, fmt.Sprintf("glue record %s.%s to be deleted", name, fqdn))
+}
+
+func poll(ctx context.Context, check func() (bool, error), desc string) error {
+	deadline := time.Now().Add(hostPollTimeout)
+	for {
+		done, err := check()
+		if err != nil {
+			return err
+		}
+		if done {
+			return nil
+		}
+		if time.Now().After(deadline) {
+			return fmt.Errorf("timed out after %s waiting for %s", hostPollTimeout, desc)
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(hostPollInterval):
+		}
+	}
+}
+
+func sortedCopy(in []string) []string {
+	out := append([]string(nil), in...)
+	sort.Strings(out)
+	return out
+}
+
+func equalStringSets(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }
