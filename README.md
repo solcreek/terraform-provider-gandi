@@ -84,6 +84,31 @@ What happens with bad credentials:
 - **Insufficient scope** → the API returns `403`, surfaced as a hint that the
   PAT lacks permission or organization scope for that resource.
 
+## Sandbox
+
+Gandi runs a separate [sandbox environment](https://api.sandbox.gandi.net/docs/)
+where you can register test domains and exercise the API for free, without
+touching real domains or money.
+
+> [!IMPORTANT]
+> The sandbox is a **separate account system**. Your production PAT does **not**
+> work there, and the sandbox still requires authentication — there is no
+> anonymous or "random token" access (unauthenticated requests return `401`, an
+> invalid token returns `403`). Create a sandbox account and a sandbox PAT in the
+> Gandi Sandbox admin first.
+
+Point the provider at it with the `sandbox` flag (or `api_url`):
+
+```hcl
+provider "gandi" {
+  sandbox               = true        # or api_url = "https://api.sandbox.gandi.net"
+  personal_access_token = var.sandbox_pat
+}
+```
+
+`sandbox` can also be set via `GANDI_SANDBOX=true`. If both `api_url` and
+`sandbox` are set, `api_url` wins.
+
 ## Limitations
 
 - **Gandi v5 API only.** This provider targets the Gandi
@@ -107,10 +132,23 @@ What happens with bad credentials:
 
 ```sh
 make build      # compile
-make test       # unit tests (no network)
+make test       # unit tests (no network, no credentials)
 make testacc    # acceptance tests — needs GANDI_PAT and GANDI_TEST_DOMAIN
 make lint       # golangci-lint
+make generate   # regenerate docs/ from schema + examples
 ```
+
+Unit tests use an in-process HTTP stub and need **no credentials**. Acceptance
+tests (`TF_ACC`) make real API calls — to avoid touching production domains you
+can run them against the **sandbox** with a sandbox PAT:
+
+```sh
+GANDI_API_URL=https://api.sandbox.gandi.net \
+GANDI_PAT=<sandbox-pat> GANDI_TEST_DOMAIN=<sandbox-domain> make testacc
+```
+
+The `gandi_nameservers` acceptance test mutates a domain's nameservers, so it is
+additionally gated behind `GANDI_TEST_NAMESERVERS` and skips unless set.
 
 To run a local build, use a Terraform CLI dev override:
 
