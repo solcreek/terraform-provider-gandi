@@ -2,8 +2,10 @@
     <img src=".github/tf.svg" alt="Terraform logo" title="Terraform" align="left" height="50" />
 </a>
 <a href="https://opentofu.org">
-    <img src=".github/opentofu-light.svg#gh-light-mode-only" alt="OpenTofu logo" title="OpenTofu" align="left" height="50" />
-    <img src=".github/opentofu-dark.svg#gh-dark-mode-only" alt="OpenTofu logo" title="OpenTofu" align="left" height="50" />
+    <picture>
+        <source media="(prefers-color-scheme: dark)" srcset=".github/opentofu-dark.svg" />
+        <img src=".github/opentofu-light.svg" alt="OpenTofu logo" title="OpenTofu" align="left" height="50" />
+    </picture>
 </a>
 
 # Terraform / OpenTofu Provider for Gandi
