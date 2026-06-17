@@ -1,6 +1,6 @@
 BINARY = terraform-provider-gandi
 
-.PHONY: build install vet fmt lint test testacc tidy
+.PHONY: build install vet fmt lint test testacc tidy generate
 
 build: ## Compile the provider binary
 	go build -o $(BINARY) .
@@ -27,3 +27,6 @@ testacc:
 
 tidy:
 	go mod tidy
+
+generate: ## Regenerate docs/ from schema + examples
+	go generate ./...

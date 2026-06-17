@@ -48,6 +48,28 @@ jobs:
         with:
           version: latest
 
+  docs:
+    name: Docs up to date
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: "go.mod"
+          cache: true
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+      - run: go generate ./...
+      - name: Verify docs/ is committed and current
+        run: |
+          if [ -n "$(git status --porcelain docs/)" ]; then
+            echo "docs/ is out of date — run 'make generate' and commit:"
+            git --no-pager diff docs/
+            exit 1
+          fi
+
   unit:
     name: Unit tests
     runs-on: ubuntu-latest

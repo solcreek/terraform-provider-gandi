@@ -10,6 +10,9 @@ import (
 	"github.com/solcreek/terraform-provider-gandi/internal/provider"
 )
 
+// Generate the registry documentation from schema + examples/ + templates/.
+//go:generate go tool tfplugindocs generate --provider-name gandi
+
 // version is overridden at build time via -ldflags.
 var version = "dev"
 

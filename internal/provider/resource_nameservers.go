@@ -45,8 +45,9 @@ func (r *nameserversResource) Schema(_ context.Context, _ resource.SchemaRequest
 				PlanModifiers:       []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"id": schema.StringAttribute{
-				Computed:      true,
-				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+				MarkdownDescription: "The domain (FQDN); same as `domain`.",
+				Computed:            true,
+				PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
 			"nameservers": schema.ListAttribute{
 				MarkdownDescription: "Ordered list of nameserver hostnames. Minimum one.",
