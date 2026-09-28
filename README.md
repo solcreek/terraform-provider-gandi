@@ -13,7 +13,7 @@
 [![GitHub tag (latest SemVer)](https://img.shields.io/github/v/tag/solcreek/terraform-provider-gandi?label=release&style=for-the-badge)](https://github.com/solcreek/terraform-provider-gandi/releases/latest) [![License](https://img.shields.io/github/license/solcreek/terraform-provider-gandi.svg?style=for-the-badge)](LICENSE) [![Tests](https://img.shields.io/github/actions/workflow/status/solcreek/terraform-provider-gandi/test.yml?branch=main&style=for-the-badge)](https://github.com/solcreek/terraform-provider-gandi/actions)
 
 A small, focused provider for managing [Gandi](https://www.gandi.net) domains,
-nameservers, glue records and LiveDNS records. It uses a **dependency-free,
+nameservers, glue records, DNSSEC keys and LiveDNS records. It uses a **dependency-free,
 standard-library-only** Gandi API client (no `go-gandi`), so the provider owns
 its own HTTP behaviour: configurable timeout, rate-limit back-off and clear
 credential errors.
@@ -50,17 +50,19 @@ resource "gandi_nameservers" "example" {
 }
 ```
 
-See [`examples/`](./examples) for nameservers, glue records, LiveDNS records and
-the `gandi_domain` data source.
+See [`examples/`](./examples) for nameservers, glue records, DNSSEC keys,
+LiveDNS records and the data sources.
 
 ## Resources & data sources
 
 | Kind | Name | Purpose |
 |------|------|---------|
-| data | `gandi_domain` | Look up a domain (nameservers, status, expiry dates). |
+| data | `gandi_domain` | Look up a domain (nameservers, status, expiry dates, DNSSEC availability). |
+| data | `gandi_dnssec_keys` | List the DNSSEC keys registered for a domain. |
 | resource | `gandi_nameservers` | Set a domain's registry nameservers. |
 | resource | `gandi_glue_record` | Manage a glue record (host) → IPs. |
 | resource | `gandi_livedns_record` | Manage a single LiveDNS rrset. |
+| resource | `gandi_dnssec_key` | Submit a DNSKEY to the registry, which publishes the DS record. |
 
 All resources support `terraform import`.
 
@@ -116,7 +118,7 @@ provider "gandi" {
 - **PAT only.** No support for the deprecated API key. PATs **expire** — plan a
   rotation strategy. A PAT is bound to a **single organization**; use
   `sharing_id` to scope requests when needed.
-- **Focused surface.** Only the four resources/data sources above are
+- **Focused surface.** Only the resources/data sources above are
   implemented (domains/DNS), not Gandi's full product catalogue (email,
   Simple Hosting, certificates, etc.).
 - **LiveDNS vs registry.** `gandi_livedns_record` only resolves while the domain
@@ -125,6 +127,12 @@ provider "gandi" {
 - **TXT values are quoted.** Gandi stores TXT values wrapped in literal double
   quotes, so write them quoted, e.g. `values = ["\"hello\""]`.
 - **CNAME/MX/NS values** must be fully qualified with a trailing dot.
+- **DNSSEC takes a DNSKEY, not a DS.** Gandi derives the DS record from the
+  public key; there is no way to submit a raw DS. `gandi_dnssec_key` has no
+  update — every change replaces the key, so use `create_before_destroy` for a
+  rollover, and only submit a key once the zone is actively signed with it.
+  `data.gandi_domain.dnssec_available` tells you whether the registry supports
+  it at all.
 - **`gandi_nameservers` delete is a no-op** at the registry — a domain must
   always have nameservers, so destroy only drops it from Terraform state.
 
@@ -149,6 +157,10 @@ GANDI_PAT=<sandbox-pat> GANDI_TEST_DOMAIN=<sandbox-domain> make testacc
 
 The `gandi_nameservers` acceptance test mutates a domain's nameservers, so it is
 additionally gated behind `GANDI_TEST_NAMESERVERS` and skips unless set.
+Likewise the `gandi_dnssec_key` acceptance test publishes a DS record for the
+test domain, so it only runs when `GANDI_TEST_DNSSEC_PUBLIC_KEY` (and optionally
+`GANDI_TEST_DNSSEC_ALGORITHM`, default `13`) is set. Its lifecycle is also
+covered by credential-free unit tests against an in-memory fake API.
 
 To run a local build, use a Terraform CLI dev override:
 
