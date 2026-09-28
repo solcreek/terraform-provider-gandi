@@ -44,3 +44,22 @@ func (c *Client) SetNameservers(ctx context.Context, fqdn string, ns []string) e
 	body := map[string][]string{"nameservers": ns}
 	return c.do(ctx, "PUT", "/v5/domain/domains/"+url.PathEscape(fqdn)+"/nameservers", body, nil)
 }
+
+// DomainLiveDNS is the LiveDNS/DNSSEC status of a domain. The DNSSEC flags are
+// optional in the API response, hence pointers: nil means "not reported".
+type DomainLiveDNS struct {
+	Current             string   `json:"current"`
+	Nameservers         []string `json:"nameservers"`
+	DNSSECAvailable     *bool    `json:"dnssec_available"`
+	LiveDNSSECAvailable *bool    `json:"livednssec_available"`
+}
+
+// GetDomainLiveDNS returns the LiveDNS status of a domain, including whether
+// its registry accepts DNSSEC keys.
+func (c *Client) GetDomainLiveDNS(ctx context.Context, fqdn string) (*DomainLiveDNS, error) {
+	var l DomainLiveDNS
+	if err := c.do(ctx, "GET", "/v5/domain/domains/"+url.PathEscape(fqdn)+"/livedns", nil, &l); err != nil {
+		return nil, err
+	}
+	return &l, nil
+}

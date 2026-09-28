@@ -55,13 +55,14 @@ func (c *Client) DeleteHost(ctx context.Context, fqdn, name string) error {
 	return c.do(ctx, "DELETE", hostsPath(fqdn)+"/"+url.PathEscape(name), nil, nil)
 }
 
-// Glue record changes are asynchronous: the API responds 202 ("in progress")
-// and the host becomes consistent a few seconds later. These helpers poll until
-// the registry reflects the desired state so Terraform state stays accurate.
+// Glue record and DNSSEC key changes are asynchronous: the API responds 202
+// ("in progress") and the change becomes visible a few seconds later. These
+// helpers poll until the registry reflects the desired state so Terraform
+// state stays accurate.
 
 const (
-	hostPollInterval = 2 * time.Second
-	hostPollTimeout  = 90 * time.Second
+	pollInterval = 2 * time.Second
+	pollTimeout  = 90 * time.Second
 )
 
 // WaitForHostIPs polls until the host exists with exactly the given IPs.
@@ -94,7 +95,7 @@ func (c *Client) WaitForHostGone(ctx context.Context, fqdn, name string) error {
 }
 
 func poll(ctx context.Context, check func() (bool, error), desc string) error {
-	deadline := time.Now().Add(hostPollTimeout)
+	deadline := time.Now().Add(pollTimeout)
 	for {
 		done, err := check()
 		if err != nil {
@@ -104,12 +105,12 @@ func poll(ctx context.Context, check func() (bool, error), desc string) error {
 			return nil
 		}
 		if time.Now().After(deadline) {
-			return fmt.Errorf("timed out after %s waiting for %s", hostPollTimeout, desc)
+			return fmt.Errorf("timed out after %s waiting for %s", pollTimeout, desc)
 		}
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case <-time.After(hostPollInterval):
+		case <-time.After(pollInterval):
 		}
 	}
 }

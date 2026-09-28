@@ -28,6 +28,7 @@ type domainModel struct {
 	CreatedAt      types.String `tfsdk:"created_at"`
 	UpdatedAt      types.String `tfsdk:"updated_at"`
 	RegistryEndsAt types.String `tfsdk:"registry_ends_at"`
+	DNSSECAvail    types.Bool   `tfsdk:"dnssec_available"`
 }
 
 func (d *domainDataSource) Metadata(_ context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
@@ -49,6 +50,11 @@ func (d *domainDataSource) Schema(_ context.Context, _ datasource.SchemaRequest,
 			"created_at":       schema.StringAttribute{Computed: true},
 			"updated_at":       schema.StringAttribute{Computed: true},
 			"registry_ends_at": schema.StringAttribute{Computed: true, MarkdownDescription: "Expiry date at the registry."},
+			"dnssec_available": schema.BoolAttribute{
+				Computed: true,
+				MarkdownDescription: "Whether the registry accepts DNSSEC keys for this domain (see `gandi_dnssec_key`). " +
+					"Null if Gandi does not report it.",
+			},
 		},
 	}
 }
@@ -73,6 +79,12 @@ func (d *domainDataSource) Read(ctx context.Context, req datasource.ReadRequest,
 		return
 	}
 
+	live, err := d.client.GetDomainLiveDNS(ctx, data.FQDN.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError("Unable to read domain DNSSEC availability", err.Error())
+		return
+	}
+
 	status, diags := types.ListValueFrom(ctx, types.StringType, dom.Status)
 	resp.Diagnostics.Append(diags...)
 	ns, diags := types.ListValueFrom(ctx, types.StringType, dom.Nameservers)
@@ -88,6 +100,7 @@ func (d *domainDataSource) Read(ctx context.Context, req datasource.ReadRequest,
 	data.CreatedAt = types.StringValue(dom.Dates.CreatedAt)
 	data.UpdatedAt = types.StringValue(dom.Dates.UpdatedAt)
 	data.RegistryEndsAt = types.StringValue(dom.Dates.RegistryEndsAt)
+	data.DNSSECAvail = types.BoolPointerValue(live.DNSSECAvailable)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
