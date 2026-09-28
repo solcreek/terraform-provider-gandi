@@ -28,6 +28,19 @@ Proudly built for the open-source IaC ecosystem and dedicated to **OpenTofu**.
 
 ## Usage
 
+> [!IMPORTANT]
+> The provider is published on the **[OpenTofu Registry](https://search.opentofu.org/provider/solcreek/gandi)**
+> only. The short `solcreek/gandi` address resolves there under OpenTofu, but
+> Terraform resolves short addresses against `registry.terraform.io`, where
+> `terraform init` fails with *"Failed to query available provider packages"*.
+> With **Terraform**, use the full address instead:
+>
+> ```hcl
+> gandi = {
+>   source = "registry.opentofu.org/solcreek/gandi"
+> }
+> ```
+
 ```hcl
 terraform {
   required_providers {
@@ -171,6 +184,35 @@ provider_installation {
   direct {}
 }
 ```
+
+With Terraform and the full `registry.opentofu.org/solcreek/gandi` source,
+use that same full address as the `dev_overrides` key.
+
+## Releasing
+
+Push a `v*` tag (e.g. `git tag v0.2.0 && git push origin v0.2.0`), after moving
+the `Unreleased` entries in `CHANGELOG.md` under the new version. The Release
+workflow runs GoReleaser, which builds every platform and signs the
+`SHA256SUMS` file with the `GPG_PRIVATE_KEY` secret. It then publishes a GitHub
+release.
+
+No registry PR is needed per version: the OpenTofu Registry polls the GitHub
+releases of registered providers every 15 minutes and picks up the new
+version on its own. Check with:
+
+```sh
+curl -s https://registry.opentofu.org/v1/providers/solcreek/gandi/versions
+```
+
+Keep in mind:
+
+- **Do not change the signing key.** The registry verifies signatures against
+  the key registered in
+  [opentofu/registry](https://github.com/opentofu/registry/tree/main/keys/s/solcreek);
+  a new key must be submitted there first.
+- **Keep the asset names.** `.goreleaser.yml` produces the
+  `_SHA256SUMS`, `_SHA256SUMS.sig`, `_manifest.json` and per-platform zip
+  names the registry protocol expects.
 
 ## License
 
