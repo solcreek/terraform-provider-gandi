@@ -36,3 +36,40 @@ data "gandi_domain" "test" {
 }
 `, domain)
 }
+
+// TestDomainDataSource_dnssecAvailable covers the flag being true, false and
+// absent from the API response (null, not a misleading false).
+func TestDomainDataSource_dnssecAvailable(t *testing.T) {
+	cfg := func(f *fakeGandi) string {
+		return f.providerConfig() + `
+data "gandi_domain" "test" {
+  fqdn = "example.build"
+}
+`
+	}
+	for name, tc := range map[string]struct {
+		avail *bool
+		check resource.TestCheckFunc
+	}{
+		"true":   {ptr(true), resource.TestCheckResourceAttr("data.gandi_domain.test", "dnssec_available", "true")},
+		"false":  {ptr(false), resource.TestCheckResourceAttr("data.gandi_domain.test", "dnssec_available", "false")},
+		"absent": {nil, resource.TestCheckNoResourceAttr("data.gandi_domain.test", "dnssec_available")},
+	} {
+		t.Run(name, func(t *testing.T) {
+			f := newFakeGandi(t)
+			f.dnssecAvailable = tc.avail
+			resource.UnitTest(t, resource.TestCase{
+				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+				Steps: []resource.TestStep{
+					{
+						Config: cfg(f),
+						Check: resource.ComposeAggregateTestCheckFunc(
+							resource.TestCheckResourceAttr("data.gandi_domain.test", "tld", "build"),
+							tc.check,
+						),
+					},
+				},
+			})
+		})
+	}
+}
