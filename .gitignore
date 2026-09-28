@@ -4,3 +4,4 @@ terraform-provider-gandi
 .terraform/
 .terraform.lock.hcl
 dist/
+bin/
