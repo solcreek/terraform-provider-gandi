@@ -203,13 +203,24 @@ curl -s https://registry.opentofu.org/v1/providers/solcreek/gandi/versions
 
 Keep in mind:
 
-- **Do not change the signing key.** The registry verifies signatures against
-  the key registered in
+- **A pushed tag is a published version, permanently.** The registry indexes
+  every semver tag and never re-indexes or removes a version
+  ([policy](https://github.com/opentofu/registry/blob/main/POLICY.md#version-immutability));
+  to fix a bad release, release a new version. The repository enforces this:
+  a `release-tags` ruleset forbids moving or deleting `v*` tags, and
+  immutable releases forbid replacing published assets. GoReleaser uploads to
+  a draft and publishes last, so it works with both.
+- **Do not change the signing key.** `tofu init` verifies `SHA256SUMS.sig`
+  against the key registered in
   [opentofu/registry](https://github.com/opentofu/registry/tree/main/keys/s/solcreek);
   a new key must be submitted there first.
 - **Keep the asset names.** `.goreleaser.yml` produces the
   `_SHA256SUMS`, `_SHA256SUMS.sig`, `_manifest.json` and per-platform zip
   names the registry protocol expects.
+
+These repository settings (plus the description and topics shown on
+search.opentofu.org) are declared in `scripts/repo-settings.sh`. Run it to
+check for drift, and with `--apply` (admin rights) to reconcile.
 
 ## License
 
