@@ -7,10 +7,12 @@
 #
 # Requires gh (authenticated with admin on the repo) and jq.
 #
-# Why these settings: the OpenTofu Registry indexes every semver git tag and
-# treats a published version as immutable (it will not re-index or remove it).
+# Why these settings: the OpenTofu Registry indexes every semver git tag, and
+# once a version is indexed it never changes its artifacts or checksums and
+# removes it only in exceptional cases; see
+# https://github.com/opentofu/registry/blob/main/POLICY.md#version-immutability.
 # So a release tag must never move or disappear, and its assets must never be
-# replaced; see https://github.com/opentofu/registry/blob/main/POLICY.md.
+# replaced, or installs of that version break.
 # Immutable releases are set here rather than with the integrations/github
 # provider, which does not support them yet (integrations/terraform-provider-github#2746).
 set -euo pipefail
@@ -76,7 +78,7 @@ if [[ "$enabled" != true && "$apply" == true ]]; then
 fi
 
 # Release tag ruleset, matched by name.
-ruleset_id=$(gh api "repos/$REPO/rulesets" --jq ".[] | select(.name == \"$RULESET_NAME\") | .id")
+ruleset_id=$(gh api --paginate "repos/$REPO/rulesets" --jq ".[] | select(.name == \"$RULESET_NAME\") | .id")
 in_sync=false
 if [[ -n "$ruleset_id" ]]; then
   current=$(gh api "repos/$REPO/rulesets/$ruleset_id" | jq -S '{

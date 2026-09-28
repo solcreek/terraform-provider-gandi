@@ -198,10 +198,11 @@ curl -s https://registry.opentofu.org/v1/providers/solcreek/gandi/versions
 
 Keep in mind:
 
-- **A pushed tag is a published version, permanently.** The registry indexes
-  every semver tag and never re-indexes or removes a version
-  ([policy](https://github.com/opentofu/registry/blob/main/POLICY.md#version-immutability));
-  to fix a bad release, release a new version. The repository enforces this:
+- **Treat a pushed tag as final.** The registry picks up every semver tag,
+  and once a version is indexed it never changes its artifacts or checksums
+  and removes it only in exceptional cases
+  ([policy](https://github.com/opentofu/registry/blob/main/POLICY.md#version-immutability)).
+  To fix a bad release, release a new version. The repository enforces this:
   a `release-tags` ruleset forbids moving or deleting `v*` tags, and
   immutable releases forbid replacing published assets. GoReleaser uploads to
   a draft and publishes last, so it works with both.
