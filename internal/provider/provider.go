@@ -45,7 +45,7 @@ func (p *gandiProvider) Metadata(_ context.Context, _ provider.MetadataRequest, 
 
 func (p *gandiProvider) Schema(_ context.Context, _ provider.SchemaRequest, resp *provider.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "Manage Gandi domains, nameservers, glue records and LiveDNS records. " +
+		MarkdownDescription: "Manage Gandi domains, nameservers, glue records, DNSSEC keys and LiveDNS records. " +
 			"Authenticates with a Personal Access Token (PAT); the deprecated API key is not supported.",
 		Attributes: map[string]schema.Attribute{
 			"personal_access_token": schema.StringAttribute{
@@ -126,6 +126,7 @@ func (p *gandiProvider) Resources(_ context.Context) []func() resource.Resource 
 		newNameserversResource,
 		newGlueRecordResource,
 		newLiveDNSRecordResource,
+		newDNSSECKeyResource,
 	}
 }
 
