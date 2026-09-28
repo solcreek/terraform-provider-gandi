@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-09-28
+
 ### Added
 
 - `gandi_dnssec_key` resource: submit a DNSKEY to the registry so Gandi
@@ -17,6 +19,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ([#1](https://github.com/solcreek/terraform-provider-gandi/issues/1))
 - `dnssec_available` attribute on the `gandi_domain` data source.
   ([#1](https://github.com/solcreek/terraform-provider-gandi/issues/1))
+
+### Fixed
+
+- Documented the full `registry.opentofu.org/solcreek/gandi` source address:
+  the short `solcreek/gandi` form fails under Terraform, which resolves it
+  against `registry.terraform.io`.
+  ([#3](https://github.com/solcreek/terraform-provider-gandi/pull/3))
+- `-debug` mode now advertises the provider under
+  `registry.opentofu.org/solcreek/gandi`, so debugger reattach matches the
+  configured source.
+  ([#3](https://github.com/solcreek/terraform-provider-gandi/pull/3))
 
 ## [0.1.0] - 2026-06-17
 
@@ -29,5 +42,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   configurable timeout, HTTP 429 back-off and actionable credential errors.
 - `sandbox` provider argument (and `GANDI_SANDBOX`) for the Gandi sandbox API.
 
-[unreleased]: https://github.com/solcreek/terraform-provider-gandi/compare/v0.1.0...HEAD
+[unreleased]: https://github.com/solcreek/terraform-provider-gandi/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/solcreek/terraform-provider-gandi/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/solcreek/terraform-provider-gandi/releases/tag/v0.1.0
