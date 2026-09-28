@@ -189,9 +189,8 @@ workflow runs GoReleaser, which builds every platform and signs the
 `SHA256SUMS` file with the `GPG_PRIVATE_KEY` secret. It then publishes a GitHub
 release.
 
-No registry PR is needed per version: the OpenTofu Registry polls the GitHub
-releases of registered providers every 15 minutes and picks up the new
-version on its own. Check with:
+No registry PR is needed per version: the new version appears on the
+OpenTofu Registry automatically. Check with:
 
 ```sh
 curl -s https://registry.opentofu.org/v1/providers/solcreek/gandi/versions
@@ -199,13 +198,25 @@ curl -s https://registry.opentofu.org/v1/providers/solcreek/gandi/versions
 
 Keep in mind:
 
-- **Do not change the signing key.** The registry verifies signatures against
-  the key registered in
+- **Treat a pushed tag as final.** The registry picks up every semver tag,
+  and once a version is indexed it never changes its artifacts or checksums
+  and removes it only in exceptional cases
+  ([policy](https://github.com/opentofu/registry/blob/main/POLICY.md#version-immutability)).
+  To fix a bad release, release a new version. The repository enforces this:
+  a `release-tags` ruleset forbids moving or deleting `v*` tags, and
+  immutable releases forbid replacing published assets. GoReleaser uploads to
+  a draft and publishes last, so it works with both.
+- **Do not change the signing key.** `tofu init` verifies `SHA256SUMS.sig`
+  against the key registered in
   [opentofu/registry](https://github.com/opentofu/registry/tree/main/keys/s/solcreek);
   a new key must be submitted there first.
 - **Keep the asset names.** `.goreleaser.yml` produces the
   `_SHA256SUMS`, `_SHA256SUMS.sig`, `_manifest.json` and per-platform zip
   names the registry protocol expects.
+
+These repository settings (plus the description and topics shown on
+search.opentofu.org) are declared in `scripts/repo-settings.sh`. Run it to
+check for drift, and with `--apply` (admin rights) to reconcile.
 
 ## License
 
