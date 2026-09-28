@@ -189,13 +189,8 @@ workflow runs GoReleaser, which builds every platform and signs the
 `SHA256SUMS` file with the `GPG_PRIVATE_KEY` secret. It then publishes a GitHub
 release.
 
-No registry PR is needed per version: the OpenTofu Registry's
-[`bump-versions`](https://github.com/opentofu/registry/blob/main/.github/workflows/bump-versions.yml)
-job scans the **git tags** of registered providers, fetches the release assets
-of any new semver tag and publishes the version. The job is scheduled every
-15 minutes, but GitHub delays scheduled runs: observed gaps between runs were
-7–63 minutes (median 19, measured 2026-09-28), so allow up to about an hour.
-Check with:
+No registry PR is needed per version: the new version appears on the
+OpenTofu Registry automatically. Check with:
 
 ```sh
 curl -s https://registry.opentofu.org/v1/providers/solcreek/gandi/versions
