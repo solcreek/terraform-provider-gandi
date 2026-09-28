@@ -1,7 +1,7 @@
 terraform {
   required_providers {
     gandi = {
-      source = "solcreek/gandi"
+      source = "registry.opentofu.org/solcreek/gandi"
     }
   }
 }

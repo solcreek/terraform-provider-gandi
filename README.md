@@ -30,22 +30,17 @@ Proudly built for the open-source IaC ecosystem and dedicated to **OpenTofu**.
 
 > [!IMPORTANT]
 > The provider is published on the **[OpenTofu Registry](https://search.opentofu.org/provider/solcreek/gandi)**
-> only. The short `solcreek/gandi` address resolves there under OpenTofu, but
-> Terraform resolves short addresses against `registry.terraform.io`, where
-> `terraform init` fails with *"Failed to query available provider packages"*.
-> With **Terraform**, use the full address instead:
->
-> ```hcl
-> gandi = {
->   source = "registry.opentofu.org/solcreek/gandi"
-> }
-> ```
+> only, so always use the **full** `registry.opentofu.org/solcreek/gandi`
+> address. It works with both OpenTofu and Terraform. The short
+> `solcreek/gandi` form only works with OpenTofu: Terraform resolves short
+> addresses against `registry.terraform.io`, where `terraform init` fails with
+> *"Failed to query available provider packages"*.
 
 ```hcl
 terraform {
   required_providers {
     gandi = {
-      source = "solcreek/gandi"
+      source = "registry.opentofu.org/solcreek/gandi"
     }
   }
 }
@@ -175,18 +170,16 @@ test domain, so it only runs when `GANDI_TEST_DNSSEC_PUBLIC_KEY` (and optionally
 `GANDI_TEST_DNSSEC_ALGORITHM`, default `13`) is set. Its lifecycle is also
 covered by credential-free unit tests against an in-memory fake API.
 
-To run a local build, use a Terraform CLI dev override:
+To run a local build, use a CLI dev override (OpenTofu reads the same file
+format as `~/.tofurc`):
 
 ```hcl
 # ~/.terraformrc  (or set TF_CLI_CONFIG_FILE)
 provider_installation {
-  dev_overrides { "solcreek/gandi" = "/abs/path/to/dir/with/binary" }
+  dev_overrides { "registry.opentofu.org/solcreek/gandi" = "/abs/path/to/dir/with/binary" }
   direct {}
 }
 ```
-
-With Terraform and the full `registry.opentofu.org/solcreek/gandi` source,
-use that same full address as the `dev_overrides` key.
 
 ## Releasing
 
