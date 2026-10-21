@@ -47,7 +47,7 @@ func TestDomainAutorenew_lifecycle(t *testing.T) {
 					resource.TestCheckResourceAttr(res, "id", testAutorenewDomain),
 					resource.TestCheckResourceAttr(res, "enabled", "true"),
 					resource.TestCheckResourceAttr(res, "duration", "1"),
-					resource.TestCheckResourceAttr(res, "org_id", "org-default"),
+					resource.TestCheckNoResourceAttr(res, "org_id"),
 					resource.TestCheckResourceAttr(res, "disable_on_destroy", "false"),
 					testAutorenewInFake(f, true, 1),
 				),
@@ -126,7 +126,7 @@ func TestDomainAutorenew_disableOnDestroy(t *testing.T) {
 `),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAutorenewInFake(f, true, 1),
-					resource.TestCheckResourceAttr("gandi_domain_autorenew.test", "org_id", "org-existing"),
+					resource.TestCheckNoResourceAttr("gandi_domain_autorenew.test", "org_id"),
 				),
 			},
 		},
@@ -166,6 +166,39 @@ func TestDomainAutorenew_emptyOrgID(t *testing.T) {
 	})
 	if _, n := f.getAutorenew(testAutorenewDomain); n != 0 {
 		t.Fatalf("invalid config reached the API (%d PATCH requests)", n)
+	}
+}
+
+// TestDomainAutorenew_unknownDuration covers a duration unknown at plan time
+// that resolves out of range: Terraform re-runs ValidateConfig at apply, so it
+// never reaches the PATCH.
+func TestDomainAutorenew_unknownDuration(t *testing.T) {
+	f := newFakeGandi(t)
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: f.providerConfig() + fmt.Sprintf(`
+# A new resource's id is unknown at plan time, and so is anything derived
+# from it; the duration resolves to 0 only at apply.
+resource "terraform_data" "seed" {}
+
+resource "terraform_data" "duration" {
+  input = length(terraform_data.seed.id) * 0
+}
+
+resource "gandi_domain_autorenew" "test" {
+  domain   = %q
+  enabled  = true
+  duration = terraform_data.duration.output
+}
+`, testAutorenewDomain),
+				ExpectError: regexp.MustCompile(`Invalid duration`),
+			},
+		},
+	})
+	if _, n := f.getAutorenew(testAutorenewDomain); n != 0 {
+		t.Fatalf("out-of-range duration reached the API (%d PATCH requests)", n)
 	}
 }
 
@@ -265,18 +298,28 @@ resource "gandi_domain_autorenew" "test" {
 				Config: cfg(!orig.Enabled),
 				Check:  resource.TestCheckResourceAttr("gandi_domain_autorenew.test", "enabled", enabled(!orig.Enabled)),
 			},
-			{
-				ResourceName:      "gandi_domain_autorenew.test",
-				ImportState:       true,
-				ImportStateVerify: true,
+			{ // Import leaves org_id untracked; the next step checks it again.
+				ResourceName:            "gandi_domain_autorenew.test",
+				ImportState:             true,
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"org_id"},
 			},
 			{
 				Config: cfg(orig.Enabled),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("gandi_domain_autorenew.test", "enabled", enabled(orig.Enabled)),
 					resource.TestCheckResourceAttr("gandi_domain_autorenew.test", "duration", strconv.Itoa(orig.Duration)),
+					testCheckOrgID("gandi_domain_autorenew.test", orig.OrgID),
 				),
 			},
 		},
 	})
+}
+
+// testCheckOrgID checks org_id is want, or absent when want is empty.
+func testCheckOrgID(name, want string) resource.TestCheckFunc {
+	if want == "" {
+		return resource.TestCheckNoResourceAttr(name, "org_id")
+	}
+	return resource.TestCheckResourceAttr(name, "org_id", want)
 }

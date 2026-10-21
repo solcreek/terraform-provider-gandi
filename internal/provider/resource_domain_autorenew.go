@@ -77,10 +77,9 @@ func (r *domainAutorenewResource) Schema(_ context.Context, _ resource.SchemaReq
 			},
 			"org_id": schema.StringAttribute{
 				MarkdownDescription: "UUID of the organization billed for automatic renewals. " +
-					"If unset, Gandi chooses it and the value it reports is kept.",
-				Optional:      true,
-				Computed:      true,
-				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+					"If unset, the domain keeps its current billing organization and Terraform does not track it; " +
+					"read it from `data.gandi_domain.autorenew.org_id`.",
+				Optional: true,
 			},
 			"disable_on_destroy": schema.BoolAttribute{
 				MarkdownDescription: "Turn automatic renewal off when this resource is destroyed. " +
@@ -99,20 +98,26 @@ func (r *domainAutorenewResource) ValidateConfig(ctx context.Context, req resour
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	if !cfg.Duration.IsNull() && !cfg.Duration.IsUnknown() {
-		if d := cfg.Duration.ValueInt64(); d < autorenewMinDuration || d > autorenewMaxDuration {
-			resp.Diagnostics.AddAttributeError(path.Root("duration"), "Invalid duration",
+	validateAutorenew(cfg, &resp.Diagnostics)
+}
+
+// validateAutorenew checks the known values of m. Terraform validates the
+// config again at apply, once values taken from other resources have
+// resolved, so this also guards the PATCH.
+func validateAutorenew(m domainAutorenewModel, diags *diag.Diagnostics) {
+	if !m.Duration.IsNull() && !m.Duration.IsUnknown() {
+		if d := m.Duration.ValueInt64(); d < autorenewMinDuration || d > autorenewMaxDuration {
+			diags.AddAttributeError(path.Root("duration"), "Invalid duration",
 				fmt.Sprintf("Expected %d–%d years, got %d.", autorenewMinDuration, autorenewMaxDuration, d))
 		}
 	}
-	if !cfg.OrgID.IsUnknown() && !cfg.OrgID.IsNull() && cfg.OrgID.ValueString() == "" {
-		resp.Diagnostics.AddAttributeError(path.Root("org_id"), "Empty org_id", emptyOrgIDDetail)
+	// An empty org_id is dropped from the PATCH, so Gandi keeps its org and
+	// the state would never match.
+	if !m.OrgID.IsNull() && !m.OrgID.IsUnknown() && m.OrgID.ValueString() == "" {
+		diags.AddAttributeError(path.Root("org_id"), "Empty org_id",
+			"Set an organization UUID, or omit `org_id` to keep the domain's current billing organization.")
 	}
 }
-
-// An empty org_id is dropped from the PATCH, so Gandi keeps its org and the
-// state would never match.
-const emptyOrgIDDetail = "Set an organization UUID, or omit `org_id` (or set it to null) to keep the one Gandi reports."
 
 func (r *domainAutorenewResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
 	if req.ProviderData == nil {
@@ -191,15 +196,10 @@ func (r *domainAutorenewResource) ImportState(ctx context.Context, req resource.
 }
 
 // apply writes the planned setting. The plan is what lands in state (Gandi
-// echoing something else would be an inconsistent result); only an org_id
-// left for Gandi to choose is read back.
+// echoing something else would be an inconsistent result), so nothing is read
+// back.
 func (r *domainAutorenewResource) apply(ctx context.Context, plan *domainAutorenewModel, diags *diag.Diagnostics) {
 	fqdn := plan.Domain.ValueString()
-	// ValidateConfig cannot see a value known only at apply time.
-	if !plan.OrgID.IsUnknown() && !plan.OrgID.IsNull() && plan.OrgID.ValueString() == "" {
-		diags.AddAttributeError(path.Root("org_id"), "Empty org_id", emptyOrgIDDetail)
-		return
-	}
 	body := gandi.AutorenewRequest{
 		Enabled:  plan.Enabled.ValueBool(),
 		Duration: int(plan.Duration.ValueInt64()),
@@ -210,18 +210,6 @@ func (r *domainAutorenewResource) apply(ctx context.Context, plan *domainAutoren
 		return
 	}
 	plan.ID = types.StringValue(fqdn)
-	if !plan.OrgID.IsUnknown() {
-		return
-	}
-	dom, err := r.client.GetDomain(ctx, fqdn)
-	if err != nil {
-		diags.AddError("Unable to read domain automatic renewal", err.Error())
-		return
-	}
-	plan.OrgID = types.StringNull()
-	if dom.Autorenew != nil && dom.Autorenew.OrgID != "" {
-		plan.OrgID = types.StringValue(dom.Autorenew.OrgID)
-	}
 }
 
 // setAutorenewState copies Gandi's setting into m, so out-of-band changes
@@ -237,7 +225,9 @@ func setAutorenewState(m *domainAutorenewModel, a *gandi.Autorenew) {
 	} else if m.Duration.IsNull() {
 		m.Duration = types.Int64Value(1)
 	}
-	// Null, not the previous value, when Gandi reports none: a configured
-	// org_id then shows as drift and is restored.
-	m.OrgID = stringOrNull(a.OrgID)
+	// org_id is tracked only when configured. Then a different or missing org
+	// at Gandi shows as drift and is restored.
+	if !m.OrgID.IsNull() {
+		m.OrgID = stringOrNull(a.OrgID)
+	}
 }

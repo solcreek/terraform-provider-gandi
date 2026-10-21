@@ -18,7 +18,7 @@ resource "gandi_domain_autorenew" "example" {
   enabled  = true
   duration = 1 # years added at each renewal, 1–9
 
-  # org_id           = "..."  # organization billed; Gandi's choice if unset
+  # org_id           = "..."  # organization billed; the current one is kept if unset
   # disable_on_destroy = true # turn renewal off when this resource is removed
 }
 ```
@@ -35,7 +35,7 @@ resource "gandi_domain_autorenew" "example" {
 
 - `disable_on_destroy` (Boolean) Turn automatic renewal off when this resource is destroyed. Defaults to `false`, so removing the resource never lets a domain lapse by accident.
 - `duration` (Number) Years added at each automatic renewal (1–9). Defaults to 1.
-- `org_id` (String) UUID of the organization billed for automatic renewals. If unset, Gandi chooses it and the value it reports is kept.
+- `org_id` (String) UUID of the organization billed for automatic renewals. If unset, the domain keeps its current billing organization and Terraform does not track it; read it from `data.gandi_domain.autorenew.org_id`.
 
 ### Read-Only
 
