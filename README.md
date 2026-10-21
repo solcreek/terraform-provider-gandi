@@ -172,8 +172,8 @@ GANDI_PAT=<sandbox-pat> GANDI_TEST_DOMAIN=<sandbox-domain> make testacc
 The `gandi_nameservers` acceptance test mutates a domain's nameservers, so it is
 additionally gated behind `GANDI_TEST_NAMESERVERS` and skips unless set.
 The `gandi_domain_autorenew` acceptance test flips the test domain's automatic
-renewal and then restores it, so it only runs when `GANDI_TEST_AUTORENEW` is
-set to the domain's current setting (`true` or `false`).
+renewal and then restores the original setting (also when a step fails), so it
+only runs when `GANDI_TEST_AUTORENEW` is set.
 Likewise the `gandi_dnssec_key` acceptance test publishes a DS record for the
 test domain, so it only runs when `GANDI_TEST_DNSSEC_PUBLIC_KEY` (and optionally
 `GANDI_TEST_DNSSEC_ALGORITHM`, default `13`) is set. Its lifecycle is also

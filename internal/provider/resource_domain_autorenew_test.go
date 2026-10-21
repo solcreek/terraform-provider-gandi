@@ -1,10 +1,12 @@
 package provider
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"os"
 	"regexp"
+	"strconv"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -168,36 +170,63 @@ func testAutorenewInFake(f *fakeGandi, enabled bool, duration int) resource.Test
 
 // TestAccDomainAutorenew_basic toggles automatic renewal on a real domain. It
 // is free, but it changes whether the domain renews (and is billed), so it only
-// runs when GANDI_TEST_AUTORENEW is set to the domain's current setting
-// ("true" or "false"), which the test restores.
+// runs when GANDI_TEST_AUTORENEW is set. It reads the domain's setting first,
+// keeps its duration and billing org throughout, and restores the original
+// setting through the API even if a step fails.
 func TestAccDomainAutorenew_basic(t *testing.T) {
-	current := os.Getenv("GANDI_TEST_AUTORENEW")
-	if current != "true" && current != "false" {
-		t.Skip("set GANDI_TEST_AUTORENEW to the test domain's current setting (true/false) to run the autorenew test")
+	if os.Getenv("GANDI_TEST_AUTORENEW") == "" {
+		t.Skip("set GANDI_TEST_AUTORENEW to run the autorenew test, which flips and restores the test domain's setting")
 	}
+	testAccPreCheck(t)
 	domain := testAccDomain()
-	flipped := "true"
-	if current == "true" {
-		flipped = "false"
+	client := gandi.New(os.Getenv("GANDI_PAT"),
+		gandi.WithBaseURL(os.Getenv("GANDI_API_URL")),
+		gandi.WithSharingID(os.Getenv("GANDI_SHARING_ID")),
+	)
+
+	dom, err := client.GetDomain(context.Background(), domain)
+	if err != nil {
+		t.Fatalf("read original autorenew setting: %v", err)
 	}
-	cfg := func(enabled string) string {
+	orig := gandi.Autorenew{Duration: 1}
+	if dom.Autorenew != nil {
+		orig = *dom.Autorenew
+	}
+	if orig.Duration < autorenewMinDuration {
+		orig.Duration = autorenewMinDuration
+	}
+	t.Cleanup(func() {
+		restore := gandi.AutorenewRequest{Enabled: orig.Enabled, Duration: orig.Duration, OrgID: orig.OrgID}
+		if err := client.SetAutorenew(context.Background(), domain, restore); err != nil {
+			t.Errorf("RESTORE FAILED: %s automatic renewal must be reset by hand to enabled=%t duration=%d: %v",
+				domain, orig.Enabled, orig.Duration, err)
+		}
+	})
+
+	orgLine := ""
+	if orig.OrgID != "" {
+		orgLine = fmt.Sprintf("org_id = %q", orig.OrgID)
+	}
+	cfg := func(enabled bool) string {
 		return fmt.Sprintf(`
 provider "gandi" {}
 
 resource "gandi_domain_autorenew" "test" {
-  domain  = %q
-  enabled = %s
+  domain   = %q
+  enabled  = %t
+  duration = %d
+  %s
 }
-`, domain, enabled)
+`, domain, enabled, orig.Duration, orgLine)
 	}
+	enabled := strconv.FormatBool
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: cfg(flipped),
-				Check:  resource.TestCheckResourceAttr("gandi_domain_autorenew.test", "enabled", flipped),
+				Config: cfg(!orig.Enabled),
+				Check:  resource.TestCheckResourceAttr("gandi_domain_autorenew.test", "enabled", enabled(!orig.Enabled)),
 			},
 			{
 				ResourceName:      "gandi_domain_autorenew.test",
@@ -205,8 +234,11 @@ resource "gandi_domain_autorenew" "test" {
 				ImportStateVerify: true,
 			},
 			{
-				Config: cfg(current),
-				Check:  resource.TestCheckResourceAttr("gandi_domain_autorenew.test", "enabled", current),
+				Config: cfg(orig.Enabled),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("gandi_domain_autorenew.test", "enabled", enabled(orig.Enabled)),
+					resource.TestCheckResourceAttr("gandi_domain_autorenew.test", "duration", strconv.Itoa(orig.Duration)),
+				),
 			},
 		},
 	})
