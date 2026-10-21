@@ -65,12 +65,13 @@ LiveDNS records and the data sources.
 
 | Kind | Name | Purpose |
 |------|------|---------|
-| data | `gandi_domain` | Look up a domain (nameservers, status, expiry dates, DNSSEC availability). |
+| data | `gandi_domain` | Look up a domain (nameservers, status, lifecycle dates, automatic renewal, DNSSEC availability). |
 | data | `gandi_dnssec_keys` | List the DNSSEC keys registered for a domain. |
 | resource | `gandi_nameservers` | Set a domain's registry nameservers. |
 | resource | `gandi_glue_record` | Manage a glue record (host) → IPs. |
 | resource | `gandi_livedns_record` | Manage a single LiveDNS rrset. |
 | resource | `gandi_dnssec_key` | Submit a DNSKEY to the registry, which publishes the DS record. |
+| resource | `gandi_domain_autorenew` | Turn a domain's automatic renewal on or off and set its duration. |
 
 All resources support `terraform import`.
 
@@ -143,6 +144,11 @@ provider "gandi" {
   it at all.
 - **`gandi_nameservers` delete is a no-op** at the registry — a domain must
   always have nameservers, so destroy only drops it from Terraform state.
+- **No paid operations.** The provider never renews, restores or registers a
+  domain, since each of those charges the account. `gandi_domain_autorenew` only
+  changes the setting; Gandi bills when it renews. Its destroy leaves automatic
+  renewal as it is unless `disable_on_destroy = true`, so a removed resource
+  cannot let a domain lapse by accident.
 
 ## Development
 
@@ -165,6 +171,9 @@ GANDI_PAT=<sandbox-pat> GANDI_TEST_DOMAIN=<sandbox-domain> make testacc
 
 The `gandi_nameservers` acceptance test mutates a domain's nameservers, so it is
 additionally gated behind `GANDI_TEST_NAMESERVERS` and skips unless set.
+The `gandi_domain_autorenew` acceptance test flips the test domain's automatic
+renewal and then restores it, so it only runs when `GANDI_TEST_AUTORENEW` is
+set to the domain's current setting (`true` or `false`).
 Likewise the `gandi_dnssec_key` acceptance test publishes a DS record for the
 test domain, so it only runs when `GANDI_TEST_DNSSEC_PUBLIC_KEY` (and optionally
 `GANDI_TEST_DNSSEC_ALGORITHM`, default `13`) is set. Its lifecycle is also
