@@ -143,10 +143,14 @@ func (f *fakeGandi) serve(w http.ResponseWriter, r *http.Request) {
 		if body.Duration == 0 {
 			body.Duration = 1
 		}
+		f.mu.Lock()
+		// Like Gandi, an omitted org_id keeps the domain's billing org.
+		if body.OrgID == "" {
+			body.OrgID = f.autorenew[domain].OrgID
+		}
 		if body.OrgID == "" {
 			body.OrgID = "org-default"
 		}
-		f.mu.Lock()
 		f.autorenewPatches++
 		f.autorenew[domain] = gandi.Autorenew{
 			Enabled: body.Enabled, Duration: body.Duration, OrgID: body.OrgID,

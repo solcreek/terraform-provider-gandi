@@ -101,14 +101,20 @@ func TestDomainAutorenew_lifecycle(t *testing.T) {
 }
 
 // TestDomainAutorenew_disableOnDestroy turns automatic renewal off on destroy
-// only when asked to.
+// only when asked to. The domain already has a billing org, which neither the
+// unconfigured org_id nor the destroy PATCH may change.
 func TestDomainAutorenew_disableOnDestroy(t *testing.T) {
 	f := newFakeGandi(t)
+	f.setAutorenew(testAutorenewDomain, gandi.Autorenew{Duration: 1, OrgID: "org-existing"})
 	resource.UnitTest(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		CheckDestroy: func(*terraform.State) error {
-			if a, _ := f.getAutorenew(testAutorenewDomain); a.Enabled {
+			a, _ := f.getAutorenew(testAutorenewDomain)
+			if a.Enabled {
 				return fmt.Errorf("automatic renewal still on after destroy with disable_on_destroy")
+			}
+			if a.OrgID != "org-existing" {
+				return fmt.Errorf("destroy changed the billing org to %q", a.OrgID)
 			}
 			return nil
 		},
@@ -118,7 +124,10 @@ func TestDomainAutorenew_disableOnDestroy(t *testing.T) {
   enabled            = true
   disable_on_destroy = true
 `),
-				Check: testAutorenewInFake(f, true, 1),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					testAutorenewInFake(f, true, 1),
+					resource.TestCheckResourceAttr("gandi_domain_autorenew.test", "org_id", "org-existing"),
+				),
 			},
 		},
 	})
