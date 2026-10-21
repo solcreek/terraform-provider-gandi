@@ -31,8 +31,9 @@ output "dnssec_available" {
 }
 
 # Automatic renewal setting and lifecycle dates, e.g. for a check block.
+# autorenew is null when Gandi does not report it, hence try().
 output "autorenew_enabled" {
-  value = data.gandi_domain.example.autorenew.enabled
+  value = try(data.gandi_domain.example.autorenew.enabled, null)
 }
 
 output "deletes_at" {
