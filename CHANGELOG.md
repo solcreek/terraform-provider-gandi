@@ -10,7 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - `gandi_domain_autorenew` resource: manage a domain's automatic renewal
-  (`enabled`, `duration`, billing `org_id`). Destroy leaves the setting alone
+  (`enabled`, `duration`, billing `org_id`). An unset `org_id` keeps the
+  domain's current billing organization and is not tracked; read it from
+  `data.gandi_domain.autorenew.org_id`. Destroy leaves the setting alone
   unless `disable_on_destroy = true`. Import by domain.
 - `autorenew` and lifecycle dates (`renew_begins_at`, `hold_begins_at`,
   `hold_ends_at`, `deletes_at`, `restore_ends_at`, `pending_delete_ends_at`) on

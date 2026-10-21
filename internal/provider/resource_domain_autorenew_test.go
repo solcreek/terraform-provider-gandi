@@ -47,7 +47,7 @@ func TestDomainAutorenew_lifecycle(t *testing.T) {
 					resource.TestCheckResourceAttr(res, "id", testAutorenewDomain),
 					resource.TestCheckResourceAttr(res, "enabled", "true"),
 					resource.TestCheckResourceAttr(res, "duration", "1"),
-					resource.TestCheckResourceAttr(res, "org_id", "org-default"),
+					resource.TestCheckNoResourceAttr(res, "org_id"),
 					resource.TestCheckResourceAttr(res, "disable_on_destroy", "false"),
 					testAutorenewInFake(f, true, 1),
 				),
@@ -126,7 +126,7 @@ func TestDomainAutorenew_disableOnDestroy(t *testing.T) {
 `),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAutorenewInFake(f, true, 1),
-					resource.TestCheckResourceAttr("gandi_domain_autorenew.test", "org_id", "org-existing"),
+					resource.TestCheckNoResourceAttr("gandi_domain_autorenew.test", "org_id"),
 				),
 			},
 		},
