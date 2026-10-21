@@ -225,7 +225,7 @@ func setAutorenewState(m *domainAutorenewModel, a *gandi.Autorenew) {
 	} else if m.Duration.IsNull() {
 		m.Duration = types.Int64Value(1)
 	}
-	if a.OrgID != "" {
-		m.OrgID = types.StringValue(a.OrgID)
-	}
+	// Null, not the previous value, when Gandi reports none: a configured
+	// org_id then shows as drift and is restored.
+	m.OrgID = stringOrNull(a.OrgID)
 }

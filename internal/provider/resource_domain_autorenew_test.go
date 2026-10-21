@@ -78,6 +78,22 @@ func TestDomainAutorenew_lifecycle(t *testing.T) {
 `),
 				Check: testAutorenewInFake(f, true, 3),
 			},
+			{ // Billing org cleared at Gandi: the configured one is restored.
+				PreConfig: func() {
+					f.setAutorenew(testAutorenewDomain, gandi.Autorenew{Enabled: true, Duration: 3})
+				},
+				Config: testDomainAutorenewConfig(f, `
+  enabled  = true
+  duration = 3
+  org_id   = "org-billing"
+`),
+				Check: func(*terraform.State) error {
+					if a, _ := f.getAutorenew(testAutorenewDomain); a.OrgID != "org-billing" {
+						return fmt.Errorf("fake org_id = %q; want the configured org restored", a.OrgID)
+					}
+					return nil
+				},
+			},
 		},
 	})
 }
