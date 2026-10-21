@@ -151,6 +151,24 @@ func TestDomainAutorenew_invalidDuration(t *testing.T) {
 	}
 }
 
+// TestDomainAutorenew_emptyOrgID rejects org_id = "": the PATCH would omit it
+// and leave the org unchanged, so state and Gandi would disagree forever.
+func TestDomainAutorenew_emptyOrgID(t *testing.T) {
+	f := newFakeGandi(t)
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config:      testDomainAutorenewConfig(f, "enabled = true\n  org_id = \"\""),
+				ExpectError: regexp.MustCompile(`Empty org_id`),
+			},
+		},
+	})
+	if _, n := f.getAutorenew(testAutorenewDomain); n != 0 {
+		t.Fatalf("invalid config reached the API (%d PATCH requests)", n)
+	}
+}
+
 // TestDomainAutorenew_apiError surfaces a failed PATCH instead of saving state.
 func TestDomainAutorenew_apiError(t *testing.T) {
 	f := newFakeGandi(t)

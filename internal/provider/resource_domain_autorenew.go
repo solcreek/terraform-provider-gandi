@@ -105,7 +105,14 @@ func (r *domainAutorenewResource) ValidateConfig(ctx context.Context, req resour
 				fmt.Sprintf("Expected %d–%d years, got %d.", autorenewMinDuration, autorenewMaxDuration, d))
 		}
 	}
+	if !cfg.OrgID.IsUnknown() && !cfg.OrgID.IsNull() && cfg.OrgID.ValueString() == "" {
+		resp.Diagnostics.AddAttributeError(path.Root("org_id"), "Empty org_id", emptyOrgIDDetail)
+	}
 }
+
+// An empty org_id is dropped from the PATCH, so Gandi keeps its org and the
+// state would never match.
+const emptyOrgIDDetail = "Set an organization UUID, or omit `org_id` (or set it to null) to keep the one Gandi reports."
 
 func (r *domainAutorenewResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
 	if req.ProviderData == nil {
@@ -188,6 +195,11 @@ func (r *domainAutorenewResource) ImportState(ctx context.Context, req resource.
 // left for Gandi to choose is read back.
 func (r *domainAutorenewResource) apply(ctx context.Context, plan *domainAutorenewModel, diags *diag.Diagnostics) {
 	fqdn := plan.Domain.ValueString()
+	// ValidateConfig cannot see a value known only at apply time.
+	if !plan.OrgID.IsUnknown() && !plan.OrgID.IsNull() && plan.OrgID.ValueString() == "" {
+		diags.AddAttributeError(path.Root("org_id"), "Empty org_id", emptyOrgIDDetail)
+		return
+	}
 	body := gandi.AutorenewRequest{
 		Enabled:  plan.Enabled.ValueBool(),
 		Duration: int(plan.Duration.ValueInt64()),
