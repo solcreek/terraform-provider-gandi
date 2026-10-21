@@ -298,18 +298,28 @@ resource "gandi_domain_autorenew" "test" {
 				Config: cfg(!orig.Enabled),
 				Check:  resource.TestCheckResourceAttr("gandi_domain_autorenew.test", "enabled", enabled(!orig.Enabled)),
 			},
-			{
-				ResourceName:      "gandi_domain_autorenew.test",
-				ImportState:       true,
-				ImportStateVerify: true,
+			{ // Import leaves org_id untracked; the next step checks it again.
+				ResourceName:            "gandi_domain_autorenew.test",
+				ImportState:             true,
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"org_id"},
 			},
 			{
 				Config: cfg(orig.Enabled),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("gandi_domain_autorenew.test", "enabled", enabled(orig.Enabled)),
 					resource.TestCheckResourceAttr("gandi_domain_autorenew.test", "duration", strconv.Itoa(orig.Duration)),
+					testCheckOrgID("gandi_domain_autorenew.test", orig.OrgID),
 				),
 			},
 		},
 	})
+}
+
+// testCheckOrgID checks org_id is want, or absent when want is empty.
+func testCheckOrgID(name, want string) resource.TestCheckFunc {
+	if want == "" {
+		return resource.TestCheckNoResourceAttr(name, "org_id")
+	}
+	return resource.TestCheckResourceAttr(name, "org_id", want)
 }
