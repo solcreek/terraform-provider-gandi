@@ -14,22 +14,25 @@ import (
 )
 
 // fakeGandi is an in-memory stand-in for the parts of the Gandi API the DNSSEC
-// resources use, so their full Terraform lifecycle can be tested without
+// and autorenew resources use, so their full Terraform lifecycle can be tested without
 // credentials. Like the real API it answers create/delete with 202 and no id.
 type fakeGandi struct {
 	t   *testing.T
 	srv *httptest.Server
 
-	mu              sync.Mutex
-	nextID          int
-	keys            map[string][]gandi.DNSSECKey // domain -> keys
-	dnssecAvailable *bool
-	failMethod      string // requests with this method get a 400 while set
+	mu               sync.Mutex
+	nextID           int
+	keys             map[string][]gandi.DNSSECKey // domain -> keys
+	dnssecAvailable  *bool
+	autorenew        map[string]gandi.Autorenew // domain -> setting; absent means off
+	autorenewPatches int
+	failMethod       string // requests with this method get a 400 while set
 }
 
 func newFakeGandi(t *testing.T) *fakeGandi {
 	t.Helper()
-	f := &fakeGandi{t: t, nextID: 100, keys: map[string][]gandi.DNSSECKey{}}
+	f := &fakeGandi{t: t, nextID: 100, keys: map[string][]gandi.DNSSECKey{},
+		autorenew: map[string]gandi.Autorenew{}}
 	f.srv = httptest.NewServer(http.HandlerFunc(f.serve))
 	t.Cleanup(f.srv.Close)
 	return f
@@ -78,6 +81,19 @@ func (f *fakeGandi) failRequests(method string) {
 	f.failMethod = method
 }
 
+// setAutorenew changes a domain's setting directly, as if in the dashboard.
+func (f *fakeGandi) setAutorenew(domain string, a gandi.Autorenew) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.autorenew[domain] = a
+}
+
+func (f *fakeGandi) getAutorenew(domain string) (gandi.Autorenew, int) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.autorenew[domain], f.autorenewPatches
+}
+
 func (f *fakeGandi) keyCount(domain string) int {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -103,11 +119,45 @@ func (f *fakeGandi) serve(w http.ResponseWriter, r *http.Request) {
 
 	switch {
 	case len(parts) == 1 && r.Method == http.MethodGet:
+		f.mu.Lock()
+		ar, ok := f.autorenew[domain]
+		f.mu.Unlock()
+		if !ok {
+			ar = gandi.Autorenew{Duration: 1, Dates: []string{}}
+		}
 		f.json(w, http.StatusOK, map[string]any{
 			"fqdn": domain, "tld": domain[strings.LastIndex(domain, ".")+1:], "id": "dom-1",
 			"status": []string{}, "nameservers": []string{"a.ns.example"},
-			"dates": map[string]string{"registry_ends_at": "2030-01-01T00:00:00Z"},
+			"dates": map[string]string{
+				"registry_ends_at": "2030-01-01T00:00:00Z",
+				"renew_begins_at":  "2012-01-01T00:00:00Z",
+				"deletes_at":       "2030-02-15T00:00:00Z",
+			},
+			"autorenew": ar,
 		})
+	case len(parts) == 2 && parts[1] == "autorenew" && r.Method == http.MethodPatch:
+		var body gandi.AutorenewRequest
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			f.t.Errorf("fake gandi: decode autorenew body: %v", err)
+		}
+		if body.Duration == 0 {
+			body.Duration = 1
+		}
+		f.mu.Lock()
+		// Like Gandi, an omitted org_id keeps the domain's billing org.
+		if body.OrgID == "" {
+			body.OrgID = f.autorenew[domain].OrgID
+		}
+		if body.OrgID == "" {
+			body.OrgID = "org-default"
+		}
+		f.autorenewPatches++
+		f.autorenew[domain] = gandi.Autorenew{
+			Enabled: body.Enabled, Duration: body.Duration, OrgID: body.OrgID,
+			Dates: []string{"2029-12-01T00:00:00Z"},
+		}
+		f.mu.Unlock()
+		f.json(w, http.StatusCreated, map[string]string{"message": "Autorenew updated"})
 	case len(parts) == 2 && parts[1] == "livedns" && r.Method == http.MethodGet:
 		body := map[string]any{"current": "other"}
 		if f.dnssecAvailable != nil {

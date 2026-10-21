@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -29,6 +30,21 @@ type domainModel struct {
 	UpdatedAt      types.String `tfsdk:"updated_at"`
 	RegistryEndsAt types.String `tfsdk:"registry_ends_at"`
 	DNSSECAvail    types.Bool   `tfsdk:"dnssec_available"`
+
+	RenewBeginsAt       types.String `tfsdk:"renew_begins_at"`
+	HoldBeginsAt        types.String `tfsdk:"hold_begins_at"`
+	HoldEndsAt          types.String `tfsdk:"hold_ends_at"`
+	DeletesAt           types.String `tfsdk:"deletes_at"`
+	RestoreEndsAt       types.String `tfsdk:"restore_ends_at"`
+	PendingDeleteEndsAt types.String `tfsdk:"pending_delete_ends_at"`
+	Autorenew           types.Object `tfsdk:"autorenew"`
+}
+
+var domainAutorenewAttrTypes = map[string]attr.Type{
+	"enabled":  types.BoolType,
+	"duration": types.Int64Type,
+	"org_id":   types.StringType,
+	"dates":    types.ListType{ElemType: types.StringType},
 }
 
 func (d *domainDataSource) Metadata(_ context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
@@ -55,8 +71,35 @@ func (d *domainDataSource) Schema(_ context.Context, _ datasource.SchemaRequest,
 				MarkdownDescription: "Whether the registry accepts DNSSEC keys for this domain (see `gandi_dnssec_key`). " +
 					"Null if Gandi does not report it.",
 			},
+			"renew_begins_at":        lifecycleDate("Start of the renewal period. "),
+			"hold_begins_at":         lifecycleDate("When the domain enters hold after expiring. "),
+			"hold_ends_at":           lifecycleDate("End of the hold period. "),
+			"deletes_at":             lifecycleDate("When the domain is deleted if not renewed. "),
+			"restore_ends_at":        lifecycleDate("End of the restore (redemption) period. "),
+			"pending_delete_ends_at": lifecycleDate("End of the pending-delete period. "),
+			"autorenew": schema.SingleNestedAttribute{
+				MarkdownDescription: "Automatic renewal setting (see `gandi_domain_autorenew`). Null if Gandi does not report it.",
+				Computed:            true,
+				Attributes: map[string]schema.Attribute{
+					"enabled": schema.BoolAttribute{Computed: true, MarkdownDescription: "Whether automatic renewal is on."},
+					"duration": schema.Int64Attribute{
+						Computed: true, MarkdownDescription: "Years added at each automatic renewal.",
+					},
+					"org_id": schema.StringAttribute{
+						Computed: true, MarkdownDescription: "UUID of the organization billed for automatic renewals.",
+					},
+					"dates": schema.ListAttribute{
+						ElementType: types.StringType, Computed: true,
+						MarkdownDescription: "Scheduled automatic renewal attempts.",
+					},
+				},
+			},
 		},
 	}
+}
+
+func lifecycleDate(desc string) schema.StringAttribute {
+	return schema.StringAttribute{Computed: true, MarkdownDescription: desc + "Null if Gandi does not report it."}
 }
 
 func (d *domainDataSource) Configure(_ context.Context, req datasource.ConfigureRequest, resp *datasource.ConfigureResponse) {
@@ -101,6 +144,40 @@ func (d *domainDataSource) Read(ctx context.Context, req datasource.ReadRequest,
 	data.UpdatedAt = types.StringValue(dom.Dates.UpdatedAt)
 	data.RegistryEndsAt = types.StringValue(dom.Dates.RegistryEndsAt)
 	data.DNSSECAvail = types.BoolPointerValue(live.DNSSECAvailable)
+	data.RenewBeginsAt = stringOrNull(dom.Dates.RenewBeginsAt)
+	data.HoldBeginsAt = stringOrNull(dom.Dates.HoldBeginsAt)
+	data.HoldEndsAt = stringOrNull(dom.Dates.HoldEndsAt)
+	data.DeletesAt = stringOrNull(dom.Dates.DeletesAt)
+	data.RestoreEndsAt = stringOrNull(dom.Dates.RestoreEndsAt)
+	data.PendingDeleteEndsAt = stringOrNull(dom.Dates.PendingDeleteEndsAt)
+
+	data.Autorenew = types.ObjectNull(domainAutorenewAttrTypes)
+	if a := dom.Autorenew; a != nil {
+		if a.Dates == nil {
+			a.Dates = []string{}
+		}
+		dates, diags := types.ListValueFrom(ctx, types.StringType, a.Dates)
+		resp.Diagnostics.Append(diags...)
+		obj, diags := types.ObjectValue(domainAutorenewAttrTypes, map[string]attr.Value{
+			"enabled":  types.BoolValue(a.Enabled),
+			"duration": types.Int64Value(int64(a.Duration)),
+			"org_id":   stringOrNull(a.OrgID),
+			"dates":    dates,
+		})
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		data.Autorenew = obj
+	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+}
+
+// stringOrNull maps an absent (empty) API string to null rather than "".
+func stringOrNull(s string) types.String {
+	if s == "" {
+		return types.StringNull()
+	}
+	return types.StringValue(s)
 }

@@ -127,6 +127,7 @@ func (p *gandiProvider) Resources(_ context.Context) []func() resource.Resource 
 		newGlueRecordResource,
 		newLiveDNSRecordResource,
 		newDNSSECKeyResource,
+		newDomainAutorenewResource,
 	}
 }
 
