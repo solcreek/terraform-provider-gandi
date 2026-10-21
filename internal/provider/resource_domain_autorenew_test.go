@@ -183,8 +183,14 @@ func TestAccDomainAutorenew_basic(t *testing.T) {
 	}
 	testAccPreCheck(t)
 	domain := testAccDomain()
+	// Resolve the API the way the provider does, so the read and restore hit
+	// the same environment the resource changes.
+	apiURL := os.Getenv("GANDI_API_URL")
+	if apiURL == "" && envTrue(os.Getenv("GANDI_SANDBOX")) {
+		apiURL = gandi.SandboxBaseURL
+	}
 	client := gandi.New(os.Getenv("GANDI_PAT"),
-		gandi.WithBaseURL(os.Getenv("GANDI_API_URL")),
+		gandi.WithBaseURL(apiURL),
 		gandi.WithSharingID(os.Getenv("GANDI_SHARING_ID")),
 	)
 
