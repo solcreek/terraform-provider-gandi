@@ -14,3 +14,12 @@ output "expires_at" {
 output "dnssec_available" {
   value = data.gandi_domain.example.dnssec_available
 }
+
+# Automatic renewal setting and lifecycle dates, e.g. for a check block.
+output "autorenew_enabled" {
+  value = data.gandi_domain.example.autorenew.enabled
+}
+
+output "deletes_at" {
+  value = data.gandi_domain.example.deletes_at
+}
