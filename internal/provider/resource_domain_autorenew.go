@@ -98,20 +98,26 @@ func (r *domainAutorenewResource) ValidateConfig(ctx context.Context, req resour
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	if !cfg.Duration.IsNull() && !cfg.Duration.IsUnknown() {
-		if d := cfg.Duration.ValueInt64(); d < autorenewMinDuration || d > autorenewMaxDuration {
-			resp.Diagnostics.AddAttributeError(path.Root("duration"), "Invalid duration",
+	validateAutorenew(cfg, &resp.Diagnostics)
+}
+
+// validateAutorenew checks the known values of m. Terraform validates the
+// config again at apply, once values taken from other resources have
+// resolved, so this also guards the PATCH.
+func validateAutorenew(m domainAutorenewModel, diags *diag.Diagnostics) {
+	if !m.Duration.IsNull() && !m.Duration.IsUnknown() {
+		if d := m.Duration.ValueInt64(); d < autorenewMinDuration || d > autorenewMaxDuration {
+			diags.AddAttributeError(path.Root("duration"), "Invalid duration",
 				fmt.Sprintf("Expected %d–%d years, got %d.", autorenewMinDuration, autorenewMaxDuration, d))
 		}
 	}
-	if !cfg.OrgID.IsUnknown() && !cfg.OrgID.IsNull() && cfg.OrgID.ValueString() == "" {
-		resp.Diagnostics.AddAttributeError(path.Root("org_id"), "Empty org_id", emptyOrgIDDetail)
+	// An empty org_id is dropped from the PATCH, so Gandi keeps its org and
+	// the state would never match.
+	if !m.OrgID.IsNull() && !m.OrgID.IsUnknown() && m.OrgID.ValueString() == "" {
+		diags.AddAttributeError(path.Root("org_id"), "Empty org_id",
+			"Set an organization UUID, or omit `org_id` to keep the domain's current billing organization.")
 	}
 }
-
-// An empty org_id is dropped from the PATCH, so Gandi keeps its org and the
-// state would never match.
-const emptyOrgIDDetail = "Set an organization UUID, or omit `org_id` to keep the domain's current billing organization."
 
 func (r *domainAutorenewResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
 	if req.ProviderData == nil {
@@ -194,11 +200,6 @@ func (r *domainAutorenewResource) ImportState(ctx context.Context, req resource.
 // back.
 func (r *domainAutorenewResource) apply(ctx context.Context, plan *domainAutorenewModel, diags *diag.Diagnostics) {
 	fqdn := plan.Domain.ValueString()
-	// ValidateConfig cannot see a value known only at apply time.
-	if !plan.OrgID.IsUnknown() && !plan.OrgID.IsNull() && plan.OrgID.ValueString() == "" {
-		diags.AddAttributeError(path.Root("org_id"), "Empty org_id", emptyOrgIDDetail)
-		return
-	}
 	body := gandi.AutorenewRequest{
 		Enabled:  plan.Enabled.ValueBool(),
 		Duration: int(plan.Duration.ValueInt64()),

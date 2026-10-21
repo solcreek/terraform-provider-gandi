@@ -169,6 +169,39 @@ func TestDomainAutorenew_emptyOrgID(t *testing.T) {
 	}
 }
 
+// TestDomainAutorenew_unknownDuration covers a duration unknown at plan time
+// that resolves out of range: Terraform re-runs ValidateConfig at apply, so it
+// never reaches the PATCH.
+func TestDomainAutorenew_unknownDuration(t *testing.T) {
+	f := newFakeGandi(t)
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: f.providerConfig() + fmt.Sprintf(`
+# A new resource's id is unknown at plan time, and so is anything derived
+# from it; the duration resolves to 0 only at apply.
+resource "terraform_data" "seed" {}
+
+resource "terraform_data" "duration" {
+  input = length(terraform_data.seed.id) * 0
+}
+
+resource "gandi_domain_autorenew" "test" {
+  domain   = %q
+  enabled  = true
+  duration = terraform_data.duration.output
+}
+`, testAutorenewDomain),
+				ExpectError: regexp.MustCompile(`Invalid duration`),
+			},
+		},
+	})
+	if _, n := f.getAutorenew(testAutorenewDomain); n != 0 {
+		t.Fatalf("out-of-range duration reached the API (%d PATCH requests)", n)
+	}
+}
+
 // TestDomainAutorenew_apiError surfaces a failed PATCH instead of saving state.
 func TestDomainAutorenew_apiError(t *testing.T) {
 	f := newFakeGandi(t)
