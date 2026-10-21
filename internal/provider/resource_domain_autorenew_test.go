@@ -177,6 +177,10 @@ func TestAccDomainAutorenew_basic(t *testing.T) {
 	if os.Getenv("GANDI_TEST_AUTORENEW") == "" {
 		t.Skip("set GANDI_TEST_AUTORENEW to run the autorenew test, which flips and restores the test domain's setting")
 	}
+	// resource.Test checks TF_ACC, but the read and restore below run first.
+	if os.Getenv("TF_ACC") == "" {
+		t.Skip("acceptance test: set TF_ACC=1")
+	}
 	testAccPreCheck(t)
 	domain := testAccDomain()
 	client := gandi.New(os.Getenv("GANDI_PAT"),
