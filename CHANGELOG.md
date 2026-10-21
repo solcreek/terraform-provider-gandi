@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-20
+
 ### Added
 
 - `gandi_domain_autorenew` resource: manage a domain's automatic renewal
@@ -14,9 +16,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   domain's current billing organization and is not tracked; read it from
   `data.gandi_domain.autorenew.org_id`. Destroy leaves the setting alone
   unless `disable_on_destroy = true`. Import by domain.
+  ([#7](https://github.com/solcreek/terraform-provider-gandi/pull/7),
+  [#8](https://github.com/solcreek/terraform-provider-gandi/pull/8))
 - `autorenew` and lifecycle dates (`renew_begins_at`, `hold_begins_at`,
   `hold_ends_at`, `deletes_at`, `restore_ends_at`, `pending_delete_ends_at`) on
   the `gandi_domain` data source.
+  ([#7](https://github.com/solcreek/terraform-provider-gandi/pull/7))
 
 ## [0.2.0] - 2026-09-28
 
@@ -53,6 +58,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   configurable timeout, HTTP 429 back-off and actionable credential errors.
 - `sandbox` provider argument (and `GANDI_SANDBOX`) for the Gandi sandbox API.
 
-[unreleased]: https://github.com/solcreek/terraform-provider-gandi/compare/v0.2.0...HEAD
+[unreleased]: https://github.com/solcreek/terraform-provider-gandi/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/solcreek/terraform-provider-gandi/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/solcreek/terraform-provider-gandi/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/solcreek/terraform-provider-gandi/releases/tag/v0.1.0
